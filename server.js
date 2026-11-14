@@ -1,0 +1,12 @@
+const express = require('express')
+const app = express()
+require('dotenv').config()
+const PORT = process.env.PORT;
+
+app.get('/', (req, res)=>{
+    res.send('Medicin app is running')
+})
+
+app.listen(PORT, ()=>{
+    console.log(`Medicin app is running on port ${PORT}`)
+})
