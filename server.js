@@ -8,8 +8,7 @@ const PORT = process.env.PORT;
 app.use(express.json());
 app.use(cors());
 
-const uri =
-  "mongodb+srv://ChanuaCareDB:Hno8y0SeVvbB8WbJ@cluster0.ltnfqwl.mongodb.net/";
+const uri = process.env.URI;
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -41,7 +40,15 @@ async function start() {
     });
 
     app.get("/medicine", async (req, res) => {
-      const collection = medicineCollection.find();
+      const { search } = req.query;
+      const id = req.params;
+
+      const query = {};
+      if (search) {
+        query.name = { $regex: search, $options: "i" };
+      }
+
+      const collection = medicineCollection.find(query);
       const medicines = await collection.toArray();
       return res.json(medicines);
     });
