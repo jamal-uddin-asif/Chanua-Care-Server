@@ -40,15 +40,19 @@ async function start() {
     });
 
     app.get("/medicine", async (req, res) => {
-      const { search } = req.query;
-      const id = req.params;
+      const { search, sort } = req.query;
+      console.log({search, sort})
 
       const query = {};
+      const sortBy = {}
       if (search) {
         query.name = { $regex: search, $options: "i" };
       }
+      if(sort){
+        sortBy.price = sort === 'asc' ? 1 : -1
+      }
 
-      const collection = medicineCollection.find(query);
+      const collection = medicineCollection.find(query).sort(sortBy);
       const medicines = await collection.toArray();
       return res.json(medicines);
     });
