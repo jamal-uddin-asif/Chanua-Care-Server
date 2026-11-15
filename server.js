@@ -1,12 +1,64 @@
-const express = require('express')
-const app = express()
-require('dotenv').config()
+const express = require("express");
+const app = express();
+const cors = require("cors");
+const { MongoClient, ServerApiVersion } = require("mongodb");
+require("dotenv").config();
 const PORT = process.env.PORT;
 
-app.get('/', (req, res)=>{
-    res.send('Medicin app is running')
-})
+app.use(express.json());
+app.use(cors());
 
-app.listen(PORT, ()=>{
-    console.log(`Medicin app is running on port ${PORT}`)
-})
+const uri =
+  "mongodb+srv://ChanuaCareDB:Hno8y0SeVvbB8WbJ@cluster0.ltnfqwl.mongodb.net/";
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
+
+app.get("/", (req, res) => {
+  res.send("Medicin app is running");
+});
+
+async function start() {
+  try {
+    await client.connect();
+    // Send a ping to confirm a successful connection
+    const result = await client.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!",
+    );
+
+    const db = client.db("ChanuaCareDB");
+    const medicineCollection = db.collection("medicine");
+
+    app.post("/medicine", async (req, res) => {
+      const data = req.body;
+      const result = await medicineCollection.insertOne(data);
+      res.json(result);
+    });
+
+    app.get("/medicine", async (req, res) => {
+      const collection = medicineCollection.find();
+      const medicines = await collection.toArray();
+      return res.json(medicines);
+    });
+
+    // not found route
+    app.use((req, res) => {
+      res.status(404).send("This Route is not created, please try another");
+    });
+  } catch (error) {
+    console.log(error);
+  } finally {
+    // await client.close();
+  }
+}
+
+start().catch(console.dir);
+
+app.listen(PORT, () => {
+  console.log(`Medicin app is running on port ${PORT}`);
+});
