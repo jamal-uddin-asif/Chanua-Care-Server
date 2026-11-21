@@ -18,7 +18,7 @@ const client = new MongoClient(uri, {
 });
 
 app.get("/", (req, res) => {
-  res.send("Medicin app is running");
+  res.send("Medicine app is running");
 });
 
 async function start() {
@@ -32,7 +32,9 @@ async function start() {
 
     const db = client.db("ChanuaCareDB");
     const medicineCollection = db.collection("medicine");
+    const usersCollection = db.collection("users");
 
+    // Medicine apis
     app.post("/medicine", async (req, res) => {
       const data = req.body;
       const result = await medicineCollection.insertOne(data);
@@ -41,20 +43,37 @@ async function start() {
 
     app.get("/medicine", async (req, res) => {
       const { search, sort } = req.query;
-      console.log({search, sort})
+      console.log({ search, sort });
 
       const query = {};
-      const sortBy = {}
+      const sortBy = {};
       if (search) {
         query.name = { $regex: search, $options: "i" };
       }
-      if(sort){
-        sortBy.price = sort === 'asc' ? 1 : -1
+      if (sort) {
+        sortBy.price = sort === "asc" ? 1 : -1;
       }
 
       const collection = medicineCollection.find(query).sort(sortBy);
       const medicines = await collection.toArray();
       return res.json(medicines);
+    });
+
+    // users apis
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const isExist = await usersCollection.findOne({ email: user.email });
+      if (isExist) {
+        return res.json({ success: false, message: "User already exist" });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.json(result);
+    });
+
+    app.get("/users", async (req, res) => {
+      const collection = usersCollection.find();
+      const users = await collection.toArray();
+      res.send(users);
     });
 
     // not found route
@@ -64,7 +83,6 @@ async function start() {
   } catch (error) {
     console.log(error);
   } finally {
-    // await client.close();
   }
 }
 
