@@ -2,11 +2,18 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion } = require("mongodb");
+const admin = require("firebase-admin");
 require("dotenv").config();
 const PORT = process.env.PORT;
 
 app.use(express.json());
 app.use(cors());
+
+
+const serviceAccount = require("./firebase-adminsdk.json");
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 const uri = process.env.URI;
 const client = new MongoClient(uri, {
@@ -36,28 +43,50 @@ async function start() {
 
     // Medicine apis
     app.post("/medicine", async (req, res) => {
+      console.log(
+        "Authorization Headers in post=> /medicine : ",
+        req.headers.authorization,
+      );
       const data = req.body;
       const result = await medicineCollection.insertOne(data);
       res.json(result);
     });
 
-    app.get("/medicine", async (req, res) => {
-      const { search, sort } = req.query;
-      console.log({ search, sort });
+    app.get(
+      "/medicine",
+      async function (req, res, next) {
+        const authorization = req.headers.authorization;
+        if (!authorization) {
+          return res
+            .status(401)
+            .send({ success: false, message: "Unauthorized access" });
+        }
+        const token = authorization.split(" ")[1];
+        if (!token) {
+          return res
+            .status(401)
+            .send({ success: false, message: "Unauthorized access" });
+        }
 
-      const query = {};
-      const sortBy = {};
-      if (search) {
-        query.name = { $regex: search, $options: "i" };
-      }
-      if (sort) {
-        sortBy.price = sort === "asc" ? 1 : -1;
-      }
+        next();
+      },
+      async (req, res) => {
+        const { search, sort } = req.query;
 
-      const collection = medicineCollection.find(query).sort(sortBy);
-      const medicines = await collection.toArray();
-      return res.json(medicines);
-    });
+        const query = {};
+        const sortBy = {};
+        if (search) {
+          query.name = { $regex: search, $options: "i" };
+        }
+        if (sort) {
+          sortBy.price = sort === "asc" ? 1 : -1;
+        }
+
+        const collection = medicineCollection.find(query).sort(sortBy);
+        const medicines = await collection.toArray();
+        return res.json(medicines);
+      },
+    );
 
     // users apis
     app.post("/users", async (req, res) => {
