@@ -14,7 +14,6 @@ const PORT = process.env.PORT;
 app.use(express.json());
 app.use(cors());
 
-
 const serviceAccount = require("./firebase-adminsdk.json");
 
 // admin.initializeApp({
@@ -22,8 +21,8 @@ const serviceAccount = require("./firebase-adminsdk.json");
 // });
 
 initializeApp({
-  credential: cert(serviceAccount)
-})
+  credential: cert(serviceAccount),
+});
 
 const uri = process.env.URI;
 const client = new MongoClient(uri, {
@@ -33,6 +32,42 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+// middlewares
+
+const veriryFirebaseToken = async (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res
+      .status(401)
+      .send({
+        success: false,
+        message: "Unauthorized access for not having authorization",
+      });
+  }
+  const token = authorization.split(" ")[1];
+  if (!token) {
+    return res
+      .status(401)
+      .send({
+        success: false,
+        message: "Unauthorized access for not having token",
+      });
+  }
+
+  try {
+    // const decoded = await admin.auth().verifyIdToken(token)
+    const decodedByAuth = await getAuth().verifyIdToken(token);
+    req.decoded_email = decodedByAuth.email;
+    console.log({ decodedByAuth });
+    next();
+  } catch (error) {
+    res
+      .status(401)
+      .send({ success: false, message: "Your token is not valid" });
+    console.log(error);
+  }
+};
 
 app.get("/", (req, res) => {
   res.send("Medicine app is running");
@@ -62,49 +97,22 @@ async function start() {
       res.json(result);
     });
 
-    app.get(
-      "/medicine",
-      async function (req, res, next) {
-        const authorization = req.headers.authorization;
-        if (!authorization) {
-          return res
-            .status(401)
-            .send({ success: false, message: "Unauthorized access" });
-        }
-        const token = authorization.split(" ")[1];
-        if (!token) {
-          return res
-            .status(401)
-            .send({ success: false, message: "Unauthorized access" });
-        }
-        
-        try {
-          // const decoded = await admin.auth().verifyIdToken(token)
-          const decodedByAuth = await getAuth().verifyIdToken(token)
-          req.email = decodedByAuth.email
-          console.log({decodedByAuth})
-          next()
-        } catch (error) {
-          console.log({error})
-        }
-      },
-      async (req, res) => {
-        const { search, sort } = req.query;
+    app.get("/medicine", async (req, res) => {
+      const { search, sort } = req.query;
+   
+      const query = {};
+      const sortBy = {};
+      if (search) {
+        query.name = { $regex: search, $options: "i" };
+      }
+      if (sort) {
+        sortBy.price = sort === "asc" ? 1 : -1;
+      }
 
-        const query = {};
-        const sortBy = {};
-        if (search) {
-          query.name = { $regex: search, $options: "i" };
-        }
-        if (sort) {
-          sortBy.price = sort === "asc" ? 1 : -1;
-        }
-
-        const collection = medicineCollection.find(query).sort(sortBy);
-        const medicines = await collection.toArray();
-        return res.json(medicines);
-      },
-    );
+      const collection = medicineCollection.find(query).sort(sortBy);
+      const medicines = await collection.toArray();
+      return res.json(medicines);
+    });
 
     // users apis
     app.post("/users", async (req, res) => {
