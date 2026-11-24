@@ -2,7 +2,12 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion } = require("mongodb");
+
+// firebase related var
 const admin = require("firebase-admin");
+const { initializeApp, cert } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
+
 require("dotenv").config();
 const PORT = process.env.PORT;
 
@@ -11,9 +16,14 @@ app.use(cors());
 
 
 const serviceAccount = require("./firebase-adminsdk.json");
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount)
+// });
+
+initializeApp({
+  credential: cert(serviceAccount)
+})
 
 const uri = process.env.URI;
 const client = new MongoClient(uri, {
@@ -67,8 +77,16 @@ async function start() {
             .status(401)
             .send({ success: false, message: "Unauthorized access" });
         }
-
-        next();
+        
+        try {
+          // const decoded = await admin.auth().verifyIdToken(token)
+          const decodedByAuth = await getAuth().verifyIdToken(token)
+          req.email = decodedByAuth.email
+          console.log({decodedByAuth})
+          next()
+        } catch (error) {
+          console.log({error})
+        }
       },
       async (req, res) => {
         const { search, sort } = req.query;
